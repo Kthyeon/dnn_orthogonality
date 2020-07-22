@@ -36,7 +36,7 @@ def parse_args():
 
     # model : resnet
     parser.add_argument('--model', default='resnet-50', type=str, help='name of the model to train')
-    parser.add_argument('--opt', default='both', type=str, choices=['exp', 'rec', 'both'], help='position for ortho reg of pointwise conv')
+    parser.add_argument('--opt', default='both', type=str, choices=['none', 'exp', 'rec', 'both'], help='position for ortho reg of pointwise conv')
     parser.add_argument('--init', default='xavier', type=str, choices=['xavier','kaiming','ort','z_ort'], help='initialization for network')
     parser.add_argument('--pre_trained', action='store_true', help = 'whether use pretrained model or not')
 

@@ -46,7 +46,7 @@ def load_model(model_name, args):
         elif name_list[0] == 'mobv2':
             # mobv2-1.0 : 1.0 width - # of channels
             width = float(name_list[1])
-            model = mobilev2(opt = args.opt, init = args.init, num_classes = args.num_classes, width_mult=width)
+            model = mobilenetv2(opt = args.opt, init = args.init, num_classes = args.num_classes, width_mult=width)
         elif name_list[0] == 'mobv3':
             # model : mobv3-large-1.0
             width = float(name_list[2])
