@@ -176,7 +176,7 @@ class MobileNetV3(nn.Module):
         # Xavier: http://proceedings.mlr.press/v9/glorot10a/glorot10a.pdf
         # Kaiming: https://arxiv.org/pdf/1502.01852.pdf
         if self.init == 'xavier':
-            for m in self.net.modules():
+            for m in self.modules():
                 if isinstance(m, nn.Conv2d):
                     nn.init.xavier_normal_(m.weight)
                 elif isinstance(m, nn.BatchNorm2d) or isinstance(m, nn.BatchNorm1d):
@@ -186,7 +186,7 @@ class MobileNetV3(nn.Module):
                     nn.init.xavier_normal_(m.weight)
                     nn.init.constant_(m.bias, 0)
         elif self.init == 'kaiming':
-            for m in self.net.modules():
+            for m in self.modules():
                 if isinstance(m, nn.Conv2d):
                     nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
                 elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
@@ -196,18 +196,18 @@ class MobileNetV3(nn.Module):
                     nn.init.kaiming_normal_(m.weight)
                     nn.init.constant_(m.bias, 0)
         elif self.init == 'ort':
-            for m in self.net.modules():
+            for m in self.modules():
                 if isinstance(m, nn.Conv2d):
                     if m.weight.shape[2] == 1:
                         nn.init.orthogonal_(m.weight)
                 elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
                     nn.init.constant_(m.weight, 1)
-                    nn.init>constant_(m.bias, 0)
+                    nn.init.constant_(m.bias, 0)
                 elif isinstance(m, nn.Linear):
                     nn.init.orthogonal_(m.weight)
                     nn.init.constant_(m.bias, 0)
         elif self.init == 'z_ort':
-            for m in self.net.modules():
+            for m in self.modules():
                 if isinstance(m, nn.Conv2d):
                     if m.weight.shape[2] == 1:
                         if self.opt == 'exp' and m.weight.shape[0] < m.weight.shape[1]:

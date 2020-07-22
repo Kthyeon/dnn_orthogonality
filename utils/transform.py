@@ -98,8 +98,8 @@ def data_setter(args, root = '/home/taehyeon/'):
         _trainset = datasets.CIFAR100(root + args.dataset + '/', train = True, transform = train_transforms, download = True)
         testset = datasets.CIFAR100(root + args.dataset + '/', train = False, transform = test_transforms, download = False)
     elif args.dataset == 'tiny-image':
-        _trainset = datasets.ImageFolder(root + args.dataset + '/train', transform=train_transforms)
-        testset = dataset.ImageFolder(root + args.dataset + '/val', transform=test_transforms)
+        _trainset = datasets.ImageFolder(root + '/train', transform=train_transforms)
+        testset = datasets.ImageFolder(root + '/val', transform=test_transforms)
     elif args.dataset == 'image':
         _trainset = datasets.ImageFolder(root + args.dataset + '/Data/train', transform=train_transforms)
         testset = dataset.ImageFolder(root + args.dataset + '/Data/valid', transform=test_transforms)

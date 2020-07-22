@@ -49,12 +49,11 @@ def load_model(model_name, args):
             model = mobilev2(opt = args.opt, init = args.init, num_classes = args.num_classes, width_mult=width)
         elif name_list[0] == 'mobv3':
             # model : mobv3-large-1.0
-            mode = name_list[1]
             width = float(name_list[2])
-            if mode == 'large':
-                model = mobilenetv3_large(opt = args.opt, init = args.init, mode = mode, num_classes = args.num_classes, width_mult = width)    
+            if name_list[1]  == 'large':
+                model = mobilenetv3_large(opt = args.opt, init = args.init, num_classes = args.num_classes, width_mult = width)    
             else:
-                model = mobilenetv3_small(opt = args.opt, init = args.init, mode = mode, num_classes = args.num_classes, width_mult = width)
+                model = mobilenetv3_small(opt = args.opt, init = args.init, num_classes = args.num_classes, width_mult = width)
         else:
             raise Exception('No option for this model')
         return model
