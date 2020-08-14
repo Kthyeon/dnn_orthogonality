@@ -10,25 +10,25 @@ from thop import profile
 from torch.utils.data import DataLoader, sampler, Subset
 
 
-def train_valid(_train_set, ratio):
+def train_valid(_train_set, ratio, dataset):
     # ratio indicates the size of validation set. 0.0 indicates using full train dataset.
     # 0.3 indicates using 0.3 portion of the entire training set.
     assert 0. <= ratio <1.0, "Valid ratio should be in the range from 0.0 to 1.0." 
+    if dataset != 'image':
+        dic = {}
+        for i in range(len(_train_set.classes)):
+            dic[str(i)] = []
+
+        for id, data in enumerate(_train_set):
+            dic[str(data[1])].append(id)
     
-    dic = {}
-    for i in range(len(_train_set.classes)):
-        dic[str(i)] = []
-
-    for id, data in enumerate(_train_set):
-        dic[str(data[1])].append(id)
-
     train_list = []
     valid_list = []
-    
-    for key in dic.keys():
-        tmp = random.sample(dic[key], int(round(len(_train_set) / len(_train_set.classes) * ratio, 2)))
-        train_list += (list(set(dic[key]) - set(tmp)))
-        valid_list += tmp
+    if dataset != 'image':
+        for key in dic.keys():
+            tmp = random.sample(dic[key], int(round(len(_train_set) / len(_train_set.classes) * ratio, 2)))
+            train_list += (list(set(dic[key]) - set(tmp)))
+            valid_list += tmp
 
     return train_list, valid_list
 
@@ -101,12 +101,16 @@ def data_setter(args, root = '/home/taehyeon/'):
         _trainset = datasets.ImageFolder(root + args.dataset + '/train', transform=train_transforms)
         testset = datasets.ImageFolder(root + args.dataset + '/val', transform=test_transforms)
     elif args.dataset == 'image':
-        _trainset = datasets.ImageFolder(root + args.dataset + '/Data/train', transform=train_transforms)
-        testset = dataset.ImageFolder(root + args.dataset + '/Data/valid', transform=test_transforms)
+        _trainset = datasets.ImageFolder(root + '/train', transform=train_transforms)
+        testset = datasets.ImageFolder(root + '/val', transform=test_transforms)
 
-    train_list, valid_list = train_valid(_trainset, args.valid_size)
-    trainset = Subset(_trainset, train_list)
-    validset = Subset(_trainset, valid_list)
+    train_list, valid_list = train_valid(_trainset, args.valid_size, args.dataset)
+    if args.dataset != 'image':
+        trainset = Subset(_trainset, train_list)
+        validset = Subset(_trainset, valid_list)
+    else:
+        trainset = _trainset
+        validset = Subset(_trainset, valid_list)
     
     # Generate the dataloader
     train_loader = torch.utils.data.DataLoader(trainset, batch_size = args.batch_size, shuffle=True, pin_memory = args.pin_memory, num_workers = args.num_workers)

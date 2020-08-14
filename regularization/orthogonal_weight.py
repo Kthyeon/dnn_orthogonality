@@ -165,6 +165,13 @@ def norm_reg(mdl, device, lamb_list=[0.0, 1.0, 0.0, 0.0], opt = 'both'):
                     else:
                         # Original convolution. (Maybe including stem conv)
                         lamb = lamb_list[0]
+                        if l2_reg is None:
+                            l2_reg = lamb * conv_ortho(W, device)
+                            num = 1
+                        else:
+                            l2_reg += lamb * conv_ortho(W, device)
+                            num += 1
+                        continue
             elif isinstance(module, nn.Linear):
                 # fully connected layer
                 W = module.weight
@@ -189,7 +196,7 @@ def norm_reg(mdl, device, lamb_list=[0.0, 1.0, 0.0, 0.0], opt = 'both'):
                 num += 1
         else:
             continue
-
+    print(l2_reg/num)
     return l2_reg / num
 
 #####################################################################################################
@@ -241,6 +248,7 @@ def srip_reg(mdl, device, lamb_list=[0.0, 1.0, 0.0, 0.0], opt='both', tp='app'):
                         else:
                             l2_reg += lamb * conv_ortho(W, device)
                             num += 1
+                        continue
             elif isinstance(module, nn.Linear):
                 # fully connected layer
                 W = module.weight

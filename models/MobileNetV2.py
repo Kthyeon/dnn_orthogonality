@@ -168,7 +168,7 @@ class MobileNetV2(nn.Module):
                         nn.init.orthogonal_(m.weight)
                 elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
                     nn.init.constant_(m.weight, 1)
-                    nn.init>constant_(m.bias, 0)
+                    nn.init.constant_(m.bias, 0)
                 elif isinstance(m, nn.Linear):
                     nn.init.orthogonal_(m.weight)
                     nn.init.constant_(m.bias, 0)
