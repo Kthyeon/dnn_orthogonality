@@ -206,32 +206,32 @@ class ResNet(nn.Module):
                 if isinstance(m, nn.Conv2d):
                     nn.init.xavier_normal_(m.weight)
                 elif isinstance(m, nn.BatchNorm2d) or isinstance(m, nn.BatchNorm1d):
-                    nn.init.constant_(m.weight, 1)
-                    nn.init.constant_(m.bias, 0)
+                    m.weight.data.fill_(1)
+                    m.bias.data.zero_()
                 elif isinstance(m, nn.Linear):
                     nn.init.xavier_normal_(m.weight)
-                    nn.init.constant_(m.bias, 0)
+                    m.bias.data.zero_()
         elif self.init == 'kaiming':
             for m in self.modules():
                 if isinstance(m, nn.Conv2d):
                     nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
                 elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
-                    nn.init.constant_(m.weight, 1)
-                    nn.init.constant_(m.bias, 0)
+                    m.weight.data.fill_(1)
+                    m.bias.data.zero_()
                 elif isinstance(m, nn.Linear):
                     nn.init.kaiming_normal_(m.weight)
-                    nn.init.constant_(m.bias, 0)
+                    m.bias.data.zero_()
         elif self.init == 'ort':
             for m in self.modules():
                 if isinstance(m, nn.Conv2d):
                     if m.weight.shape[2] == 1:
                         nn.init.orthogonal_(m.weight)
                 elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
-                    nn.init.constant_(m.weight, 1)
-                    nn.init>constant_(m.bias, 0)
+                    m.weight.data.fill_(1)
+                    m.bias.data.zero_()
                 elif isinstance(m, nn.Linear):
                     nn.init.orthogonal_(m.weight)
-                    nn.init.constant_(m.bias, 0)
+                    m.bias.data.zero_()
         elif self.init == 'z_ort':
             for m in self.modules():
                 if isinstance(m, nn.Conv2d):
@@ -244,9 +244,9 @@ class ResNet(nn.Module):
                     elif m.weight.shape[2] ==3 and m.weight.shape[1] == 1:
                         nn.init.constant_(m.weight, 0)
                 elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
-                    nn.init.constant_(m.weight, 1)
-                    nn.init>constant_(m.bias, 0)
+                    m.weight.data.fill_(1)
+                    m.bias.data.zero_()
                 elif isinstance(m, nn.Linear):
                     nn.init.orthogonal_(m.weight)
-                    nn.init.constant_(m.bias, 0)
+                    m.bias.data.zero_()
 

@@ -8,7 +8,87 @@ from torch.nn.functional import normalize
 from torch.autograd import Variable
 from torch import cuda, nn, optim
 
-__all__ = ['norm_reg', 'srip_reg','or_reg','noise_reg']
+__all__ = ['wd_reg', 'norm_reg', 'srip_reg','or_reg','noise_reg']
+
+def conv_ortho(weight, device):    
+    cols = weight[0].numel()
+    w1 = weight.view(-1, cols)
+    wt = torch.transpose(w1, 0, 1)
+    m = torch.matmul(wt, w1)
+    ident = Variable(torch.eye(cols, cols) / numpy.sqrt(cols)).to(device)
+
+    w_tmp = (m-ident)
+    sigma = torch.norm(w_tmp)
+    
+    return sigma
+
+
+#####################################################################################################
+#####################################################################################################
+
+def depth_ortho(weight, tp = 'app'):
+    # tp: app (근사) & ori (있는 그대로)
+    l2_reg = 0
+    if tp =='app':
+        for W in weight:
+            tmp = 0
+            W = W.squeeze()
+            for row in W:
+                tmp += torch.sum(torch.square(row))
+            l2_reg += torch.abs(tmp-1)
+    elif tp=='ori':
+        for W in weight:
+            tmp = 0
+            W = W.squeeze()
+            for row in W:
+                tmp += torch.sum(torch.square(row))
+            l2_reg += torch.abs(tmp-1)
+            l2_reg += torch.abs(W[0,0]*W[0,1]+W[0,1]*W[0,2]+W[1,0]*W[1,1]+W[1,1]*W[1,2]+W[2,0]*W[2,1]+W[2,1]*W[2,2])
+            l2_reg += torch.abs(W[0,0]*W[0,2]+W[1,0]*W[1,2]+W[2,0]*W[2,2])
+    return l2_reg
+
+#####################################################################################################
+#####################################################################################################
+
+def wd_reg(mdl, device, lamb_list=[0.0, 1.0, 0.0, 0.0], opt='both'):
+    
+    assert type(lamb_list) is list, 'lamb_list should be list'
+    l2_reg = None
+    
+    for module in mdl.modules():
+        if isinstance(module, nn.Conv2d) or isinstance(module, nn.Linear):
+            if isinstance(module, nn.Conv2d):
+                if module.weight.shape[2] == 1:
+                    if opt == 'exp' and module.weight.shape[0]<module.weight.shape[1]:
+                        continue
+                    elif opt == 'rec' and module.weight.shape[0]>module.weight.shape[1]:
+                        continue
+                    # pointwise conv
+                    W = module.weight
+                    lamb = lamb_list[1]
+                elif module.weight.shape[2] ==3:
+                    W = module.weight
+                    if module.weight.shape[1] == 1:
+                        # Depthwise convolution.
+                        lamb = lamb_list[2]
+                    else:
+                        # Original convolution. (Maybe including stem conv)
+                        lamb = lamb_list[0]
+            elif isinstance(module, nn.Linear):
+                # fully connected layer
+                W = module.weight
+                lamb = lamb_list[3]
+            else:
+                continue
+            
+            if l2_reg is None:
+                l2_reg = lamb * torch.norm(W)
+            else:
+                l2_reg += lamb * torch.norm(W)
+        else:
+            continue
+    
+    return l2_reg
 
 #####################################################################################################
 #####################################################################################################
@@ -75,6 +155,13 @@ def norm_reg(mdl, device, lamb_list=[0.0, 1.0, 0.0, 0.0], opt = 'both'):
                     if module.weight.shape[1] == 1:
                         # Depthwise convolution.
                         lamb = lamb_list[2]
+                        if l2_reg is None:
+                            l2_reg = lamb * depth_ortho(W)
+                            num = 1
+                        else:
+                            l2_reg += lamb * depth_ortho(W)
+                            num += 1
+                        continue
                     else:
                         # Original convolution. (Maybe including stem conv)
                         lamb = lamb_list[0]
@@ -110,7 +197,7 @@ def norm_reg(mdl, device, lamb_list=[0.0, 1.0, 0.0, 0.0], opt = 'both'):
 # This is from the work: 'Can We Gain More from Orthogonality Regularizations in Training Deep CNNs?,' 
 # https://arxiv.org/abs/1810.09102.
 
-def srip_reg(mdl, device, lamb_list=[0.0, 1.0, 0.0, 0.0], opt='both'):
+def srip_reg(mdl, device, lamb_list=[0.0, 1.0, 0.0, 0.0], opt='both', tp='app'):
     # Consider the below facotrs.
     # factor1: which kind layer (e.g., original(stem), pointwise, depthwise, fc_layer)
     # factor2: power of regularization (i.e., lambda). Maybe, we should differ from each class of layer's lambda.
@@ -138,9 +225,22 @@ def srip_reg(mdl, device, lamb_list=[0.0, 1.0, 0.0, 0.0], opt='both'):
                     if module.weight.shape[1] == 1:
                         # Depthwise convolution.
                         lamb = lamb_list[2]
+                        if l2_reg is None:
+                            l2_reg = lamb * depth_ortho(W, tp)
+                            num = 1
+                        else:
+                            l2_reg += lamb * depth_ortho(W, tp)
+                            num += 1
+                        continue
                     else:
                         # Original convolution. (Maybe including stem conv)
                         lamb = lamb_list[0]
+                        if l2_reg is None:
+                            l2_reg = lamb * conv_ortho(W, device)
+                            num = 1
+                        else:
+                            l2_reg += lamb * conv_ortho(W, device)
+                            num += 1
             elif isinstance(module, nn.Linear):
                 # fully connected layer
                 W = module.weight

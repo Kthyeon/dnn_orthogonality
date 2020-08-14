@@ -35,8 +35,9 @@ def load_model(model_name, args):
             model = MicroNet(opt = args.opt, init = args.init, num_classes = args.num_classes, wide_factor = wide_f, depth_factor = depth_f, expansion = expan)
         elif name_list[0] == 'res':
             # res-50-1
+            print(name_list)
             depth = float(name_list[1])
-            width = float(name_list[2])
+            width = int(name_list[2])
             model = ResNet(opt = args.opt, init = args.init, num_classes = args.num_classes, width = width, depth = depth)
         elif name_list[0] == 'wrn':
             # wrn-28-4
@@ -63,7 +64,7 @@ def load_model(model_name, args):
 
     
 def make_log(model_name, args):
-    log_filename = './results/' + args.dataset + '/' +  model_name + '/' + args.init + '_' + args.opt + '_' + args.ortho + '_' + args.lamb_list + '_seed'  + str(args.seed) +  '_log.csv'
+    log_filename = './results/' + args.dataset + '/' +  model_name + '/' + args.init + '_' + args.opt + '_' + args.ortho + '_' + args.lamb_list + '_' + args.tp  + '_seed'  + str(args.seed) +  '_log.csv'
     log_columns = ['train_loss', 'train_accuracy']
 
     if args.valid_size !=0:
@@ -103,7 +104,7 @@ def train(model, dataloader, args):
     other_params = [module for module in model.parameters() if module.ndimension() > 1]
     # Optimizer for training.
     optimizer = torch.optim.SGD([{'params' : batch_params, 'weight_decay': 0},
-            {'params': other_params, 'weight_decay': weight_decay}], lr=learning_rate, momentum=momentum, nesterov=nesterov)
+            {'params': other_params, 'weight_decay': 0}], lr=learning_rate, momentum=momentum, nesterov=nesterov)
     
     # Learning rate scheduler. It is in ['step', 'cos'].
     if args.lr_sch == 'cos':
@@ -149,11 +150,13 @@ def train(model, dataloader, args):
             if args.ortho == 'norm':
                 loss += norm_reg(mdl = model, device = device, lamb_list = lambda_list, opt = args.opt)
             elif args.ortho == 'srip':
-                loss += srip_reg(mdl = model, device = device, lamb_list = lambda_list, opt = args.opt)
+                loss += srip_reg(mdl = model, device = device, lamb_list = lambda_list, opt = args.opt, tp = args.tp)
             elif args.ortho == 'ort':
                 loss += or_reg(mdl = model, device = device, lamb_list = lambda_list, opt = args.opt)
             elif args.ortho == 'noise':
                 loss += noise_reg(mdl = model, device = device, lamb_list = lambda_list, opt = args.opt)
+            # assign weight decay to parameters which is not penalized via ORN.
+            loss += weight_decay * wd_reg(mdl=model, device =device, lamb_list=[1.0 if lamb==0.0 else 0.0 for lamb in lambda_list])
 
             prec1, _ = accuracy(outputs.data, labels.data, topk=(1, 5))
             losses.update(loss.item(), images.size(0))

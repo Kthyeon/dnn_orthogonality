@@ -57,6 +57,7 @@ def parse_args():
     parser.add_argument('--inreg', default='none', type=str, choices=['none', 'cutmix', 'mixup'], help='input regularization')
     parser.add_argument('--ortho', default='none', type=str, choices=['none','norm','srip','ort','noise'], help='Orthogonal regularization')
     parser.add_argument('--lamb_list', default='0.0_1.0_0.0_0.0', type=str, help='lambda for each class of filter. [origin, point, depth, fully connected]')
+    parser.add_argument('--tp', default='app', type=str, choices=['app', 'ori'], help='orthogonal regularization on depthwise convolution')
 
     return parser.parse_args()
 
