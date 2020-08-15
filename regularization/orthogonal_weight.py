@@ -143,9 +143,9 @@ def norm_reg(mdl, device, lamb_list=[0.0, 1.0, 0.0, 0.0], opt = 'both'):
         if isinstance(module, nn.Conv2d) or isinstance(module, nn.Linear):
             if isinstance(module, nn.Conv2d):
                 if module.weight.shape[2] == 1:
-                    if opt == 'exp' and module.weight.shape[0]<module.weight.shape[1]:
+                    if opt == 'exp' and module.weight.shape[0]>module.weight.shape[1]:
                         continue
-                    elif opt == 'rec' and module.weight.shape[0]>module.weight.shape[1]:
+                    elif opt == 'rec' and module.weight.shape[0]<module.weight.shape[1]:
                         continue
                     # pointwise conv
                     W = module.weight
@@ -180,10 +180,14 @@ def norm_reg(mdl, device, lamb_list=[0.0, 1.0, 0.0, 0.0], opt = 'both'):
                 continue
 
             cols = W[0].numel()
-            w1 = W.view(-1, cols)
+            w1 = W.view(-1, cols) # W.shape[1] * W.shape[0]
             wt = torch.transpose(w1, 0, 1)
-            m = torch.matmul(wt, w1)
-            ident = Variable(torch.eye(cols, cols)).to(device)
+            if W.shape[0]< W.shape[1]:
+                m = torch.matmul(wt, w1)
+                ident = Variable(torch.eye(cols, cols)).to(device)
+            else:
+                m = torch.matmul(w1, wt)
+                ident = Variable(torch.eye(m.shape[0], m.shape[0])).to(device)
 
             w_tmp = (m-ident)
             sigma = torch.norm(w_tmp)
@@ -220,9 +224,9 @@ def srip_reg(mdl, device, lamb_list=[0.0, 1.0, 0.0, 0.0], opt='both', tp='app'):
         if isinstance(module, nn.Conv2d) or isinstance(module, nn.Linear):
             if isinstance(module, nn.Conv2d):
                 if module.weight.shape[2] == 1:
-                    if opt == 'exp' and module.weight.shape[0]<module.weight.shape[1]:
+                    if opt == 'exp' and module.weight.shape[0]>module.weight.shape[1]:
                         continue
-                    elif opt == 'rec' and module.weight.shape[0]>module.weight.shape[1]:
+                    elif opt == 'rec' and module.weight.shape[0]<module.weight.shape[1]:
                         continue
                     # pointwise conv
                     W = module.weight
@@ -255,12 +259,17 @@ def srip_reg(mdl, device, lamb_list=[0.0, 1.0, 0.0, 0.0], opt='both', tp='app'):
                 lamb = lamb_list[3]
             else:
                 continue
-
+                
             cols = W[0].numel()
-            w1 = W.view(-1, cols)
+            w1 = W.view(-1, cols) # W.shape[1] * W.shape[0]
             wt = torch.transpose(w1, 0, 1)
-            m = torch.matmul(wt, w1)
-            ident = Variable(torch.eye(cols, cols)).to(device)
+            if W.shape[0]< W.shape[1]:
+                m = torch.matmul(wt, w1)
+                ident = Variable(torch.eye(cols, cols)).to(device)
+            else:
+                m = torch.matmul(w1, wt)
+                ident = Variable(torch.eye(m.shape[0], m.shape[0])).to(device)
+                
 
             w_tmp = (m-ident)
             height = w_tmp.size(0)
