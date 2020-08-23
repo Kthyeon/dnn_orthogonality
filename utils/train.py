@@ -51,11 +51,13 @@ def load_model(model_name, args):
             if model_name == 'vgg19-bn':
                  model = vgg19_bn(init = args.init, num_classes = args.num_classes)
         elif name_list[0] == 'res':
-            # res-50-1-t
+            # res-50-1-t-bn or nobn
             print(name_list)
             depth = float(name_list[1])
             width = int(name_list[2])
-            model = ResNet(opt = args.opt, init = args.init, num_classes = args.num_classes, width = width, depth = depth, bottleneck= True if name_list[3]=='t' else False)
+            bottlen = True if name_list[3]=='t' else False
+            batchn = True if name_list[4] == 'bn' else False
+            model = ResNet(opt = args.opt, init = args.init, num_classes = args.num_classes, batchnorm = batchn, width = width, depth = depth, bottleneck= bottlen)
         elif name_list[0] == 'wrn':
             # wrn-28-4
             depth = int(name_list[1])
