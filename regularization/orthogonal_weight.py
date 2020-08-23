@@ -82,9 +82,9 @@ def wd_reg(mdl, device, lamb_list=[0.0, 1.0, 0.0, 0.0], opt='both'):
                 continue
             
             if l2_reg is None:
-                l2_reg = lamb * torch.norm(W)
+                l2_reg = lamb * torch.sum(W.square())
             else:
-                l2_reg += lamb * torch.norm(W)
+                l2_reg += lamb * torch.sum(W.square())
         else:
             continue
     

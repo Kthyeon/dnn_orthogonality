@@ -124,4 +124,4 @@ if __name__ == '__main__':
     state['first_wts'] = first_wts
     state['best_wts'] = best_model_wts
     
-    save_checkpoints(state, './checkpoint/' + args.dataset + '/' + args.model + '/' + args.optim + '/' + args.lr_sch + '/' args.init + '_' + args.opt + '_' + args.ortho + '_'  + args.lamb_list + '_seed' + str(args.seed) + '.pt')
+    save_checkpoints(state, './checkpoint/' + args.dataset + '/' + args.model + '/' + args.optim + '/' + args.lr_sch + '/' + args.init + '_' + args.opt + '_' + args.ortho + '_'  + args.lamb_list + '_seed' + str(args.seed) + '.pt')

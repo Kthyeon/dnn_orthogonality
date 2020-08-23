@@ -33,7 +33,7 @@ def load_model(model_name, args):
             depth_f = float(name_list[2])
             expan = float(name_list[3])
             model = MicroNet(opt = args.opt, init = args.init, num_classes = args.num_classes, wide_factor = wide_f, depth_factor = depth_f, expansion = expan)
-        elif name_list[0] == 'vgg':
+        elif 'vgg' in model_name:
             if model_name == 'vgg11':
                 model = vgg11(init = args.init, num_classes = args.num_classes)
             elif model_name == 'vgg13':
@@ -119,7 +119,7 @@ def train(model, dataloader, args):
         criterion = nn.CrossEntropyLoss()
     
     # Parameters of network.
-    batch_params = [module for module in model.parameters() if module.ndimension() == 1]
+    batch_params = [module for name, module in model.named_parameters() if module.ndimension() == 1 and 'bn' in name]
     other_params = [module for module in model.parameters() if module.ndimension() > 1]
     
     # Optimizer for training.
