@@ -33,12 +33,29 @@ def load_model(model_name, args):
             depth_f = float(name_list[2])
             expan = float(name_list[3])
             model = MicroNet(opt = args.opt, init = args.init, num_classes = args.num_classes, wide_factor = wide_f, depth_factor = depth_f, expansion = expan)
+        elif name_list[0] == 'vgg':
+            if model_name == 'vgg11':
+                model = vgg11(init = args.init, num_classes = args.num_classes)
+            elif model_name == 'vgg13':
+                model = vgg13(init = args.init, num_classes = args.num_classes)
+            elif model_name == 'vgg16':
+                model = vgg16(init = args.init, num_classes = args.num_classes)
+            elif model_name == 'vgg19':
+                model = vgg19(init = args.init, num_classes = args.num_classes)
+            elif model_name == 'vgg11-bn':
+                model = vgg11_bn(init = args.init, num_classes = args.num_classes)
+            elif model_name == 'vgg13-bn':
+                model = vgg13_bn(init = args.init, num_classes = args.num_classes)
+            elif model_name == 'vgg16-bn':
+                 model = vgg16_bn(init = args.init, num_classes = args.num_classes)
+            if model_name == 'vgg19-bn':
+                 model = vgg19_bn(init = args.init, num_classes = args.num_classes)
         elif name_list[0] == 'res':
-            # res-50-1
+            # res-50-1-t
             print(name_list)
             depth = float(name_list[1])
             width = int(name_list[2])
-            model = ResNet(opt = args.opt, init = args.init, num_classes = args.num_classes, width = width, depth = depth)
+            model = ResNet(opt = args.opt, init = args.init, num_classes = args.num_classes, width = width, depth = depth, bottleneck= True if name_list[3]=='t' else False)
         elif name_list[0] == 'wrn':
             # wrn-28-4
             depth = int(name_list[1])
@@ -64,7 +81,7 @@ def load_model(model_name, args):
 
     
 def make_log(model_name, args):
-    log_filename = './results/' + args.dataset + '/' +  model_name + '/' + args.init + '_' + args.opt + '_' + args.ortho + '_' + args.lamb_list + '_' + args.tp  + '_seed'  + str(args.seed) +  '_log.csv'
+    log_filename = './results/' + args.dataset + '/' +  model_name + '/' + args.optim + '/' + args.lr_sch + '/' + args.init + '_' + args.opt + '_' + args.ortho + '_' + args.lamb_list + '_' + args.tp  + '_seed'  + str(args.seed) +  '_log.csv'
     log_columns = ['train_loss', 'train_accuracy']
 
     if args.valid_size !=0:
@@ -90,6 +107,8 @@ def train(model, dataloader, args):
     
     milestones = milestones.split(',')
     milestones = [int(mile) for mile in milestones]
+    
+    first_wts = None
 
     # Set criterion
     # Either crossentropy or labelsmoothing.  
@@ -102,15 +121,33 @@ def train(model, dataloader, args):
     # Parameters of network.
     batch_params = [module for module in model.parameters() if module.ndimension() == 1]
     other_params = [module for module in model.parameters() if module.ndimension() > 1]
+    
     # Optimizer for training.
-    optimizer = torch.optim.SGD([{'params' : batch_params, 'weight_decay': 0},
+    if args.optim == 'sgd': 
+        optimizer = torch.optim.SGD([{'params' : batch_params, 'weight_decay': 0},
             {'params': other_params, 'weight_decay': 0}], lr=learning_rate, momentum=momentum, nesterov=nesterov)
+    elif args.optim == 'rmsprop':
+        optimizer = torch.optim.RMSprop([{'params' : batch_params, 'weight_decay': 0},
+            {'params': other_params, 'weight_decay': 0}], lr=0.01, alpha=0.99, eps=1e-08, weight_decay=0, momentum=momentum, centered=False)
+    elif args.optim == 'adam':
+        optimizer = torch.optim.Adam([{'params' : batch_params, 'weight_decay': 0},
+            {'params': other_params, 'weight_decay': 0}], lr=0.001, betas=(0.9, 0.999), eps=1e-08, weight_decay=0, amsgrad=False)
+    elif args.optim == 'adadelta':
+        optimizer = torch.optim.Adadelta([{'params' : batch_params, 'weight_decay': 0},
+            {'params': other_params, 'weight_decay': 0}], lr = 1.0, rho = 0.9, eps=1e-6)
+    elif args.optim == 'adagrad':
+        optimizer = torch.optim.Adagrad([{'params' : batch_params, 'weight_decay': 0},
+            {'params': other_params, 'weight_decay': 0}], lr = 0.01, lr_decay = 0, initial_accumulator_value=0, eps=1e-10)
+    
     
     # Learning rate scheduler. It is in ['step', 'cos'].
     if args.lr_sch == 'cos':
         scheduler = lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max = num_epochs, eta_min=0.0005, last_epoch=-1)
+    elif args.lr_sch == 'exp':
+        scheduler = lr_scheduler.ExponentialLR(optimizer=optimizer, gamma = gamma, last_epoch=-1)
     else:
         scheduler = lr_scheduler.MultiStepLR(gamma=gamma, milestones=milestones, optimizer=optimizer)
+    
     best_acc = 0.
     best_model_wts = copy.deepcopy(model.state_dict())
     
@@ -155,8 +192,14 @@ def train(model, dataloader, args):
                 loss += or_reg(mdl = model, device = device, lamb_list = lambda_list, opt = args.opt)
             elif args.ortho == 'noise':
                 loss += noise_reg(mdl = model, device = device, lamb_list = lambda_list, opt = args.opt)
+            elif args.ortho == 'inputnorm':
+                loss += lambda_list[0] * model.make_norm_dif(images)
+                
             # assign weight decay to parameters which is not penalized via ORN.
+            if args.ortho == 'none':
+                lambda_list = [0.0, 0.0, 0.0, 0.0]
             loss += weight_decay * wd_reg(mdl=model, device =device, lamb_list=[1.0 if lamb==0.0 else 0.0 for lamb in lambda_list])
+            
 
             prec1, _ = accuracy(outputs.data, labels.data, topk=(1, 5))
             losses.update(loss.item(), images.size(0))
@@ -173,6 +216,9 @@ def train(model, dataloader, args):
         epoch_log += [round(test_loss, 4), round(test_accuracy, 4)]
         log_pd.loc[epoch] = epoch_log
         log_pd.to_csv(log_filename)
+        
+        if epoch==0:
+            first_wts = copy.deepcopy(model.state_dict())
 
         if test_accuracy > best_acc:
             best_acc = test_accuracy
@@ -180,7 +226,7 @@ def train(model, dataloader, args):
             for k, v in best_model_wts.items():
                 best_model_wts[k] = v.cpu()
 
-    return  best_model_wts
+    return  first_wts, best_model_wts
 
 def eval_(model, test_loader, args):
     device = args.device

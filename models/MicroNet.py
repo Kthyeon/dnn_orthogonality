@@ -80,6 +80,37 @@ class MicroBlock(nn.Module):
 
         out = out * w + self.shortcut(x) if self.stride==1 else out
         return out
+    
+    def norm_dif(self, x):
+        norm_loss = 0.
+        out = self.act1(self.bn1(self.conv1(x)))
+        out_norm = torch.norm(out.reshape(out.shape[0],-1), dim=1)
+        x_norm = torch.norm(x.reshape(x.shape[0],-1), dim=1)
+        norm_loss += torch.sum(torch.abs(out_norm-x_norm))
+        x1=out
+        
+        out = self.act2(self.bn2(self.conv2(x1)))
+        out_norm = torch.norm(out.reshape(out.shape[0],-1), dim=1)
+        x_norm = torch.norm(x1.reshape(x1.shape[0],-1), dim=1)
+        norm_loss += torch.sum(torch.abs(out_norm-x_norm))
+        x1=out
+        
+        out = self.bn3(self.conv3(x1))
+        out_norm = torch.norm(out.reshape(out.shape[0],-1), dim=1)
+        x_norm = torch.norm(x1.reshape(x1.shape[0],-1), dim=1)
+        norm_loss += torch.sum(torch.abs(out_norm-x_norm))
+        
+        # Squeeze-Excitation
+        w = self.avg_se(out)
+        w = self.act_se(self.fc1(w))
+        w = self.sigmoid(self.fc2(w))
+
+        out = out * w + self.shortcut(x) if self.stride==1 else out
+        out_norm = torch.norm(out.reshape(out.shape[0],-1), dim=1)
+        x_norm = torch.norm(x.reshape(x.shape[0],-1), dim=1)
+        norm_loss += torch.sum(torch.abs(out_norm-x_norm))
+        
+        return norm_loss
         
 class MicroNet(nn.Module):
     # (expansion, out_planes, num_blocks, stride)
@@ -217,6 +248,41 @@ class MicroNet(nn.Module):
             
         return out
     
+    def make_norm_dif(self, x, loc = [True, True]):
+        # loc is the location vector whether penalize norm or not.
+        # loc[0]: stem
+        # loc[1]: fully
+        norm_loss = 0.
+        num = 0
+        out = self.stem_act(self.bn1(self.conv1(x)))
+        if loc[0]:
+            out_norm = torch.norm(out.reshape(out.shape[0],-1), dim=1)
+            x_norm = torch.norm(x.reshape(x.shape[0],-1), dim=1)
+            norm_loss += torch.sum(torch.abs(out_norm-x_norm))
+            num += 1
+        
+        x = out
+        for layer in self.blocks:
+            #if layer.downsample:
+            #    x = layer(x)
+            #    continue
+            out = layer(x)
+            norm_loss += layer.norm_dif(x)
+            x = out
+            num += 4
+        
+        x = self.avg(x)
+        x = x.view(x.size(0), -1)
+        out = self.linear(self.dropout(x))
+        if loc[1]:
+            out_norm = torch.norm(out.reshape(out.shape[0],-1), dim=1)
+            x_norm = torch.norm(x.reshape(x.shape[0],-1), dim=1)
+            norm_loss += torch.sum(torch.abs(out_norm-x_norm))
+            num += 1
+        
+        return norm_loss / num / x.shape[0]
+    
+    
     def extract_feature(self, x):
         # To analyze the behavior of layerwise response.
         # feature_list: layerwise output whose channel size is 1. (kind of activatoin map) (shape: NxNx1)
@@ -261,3 +327,15 @@ class MicroNet(nn.Module):
 
         
         return feature_list, map_list, norm_list
+    
+    def norm_change(self,x):
+        norm_list = []
+        
+        out = self.stem_act(self.bn1(self.conv1(x)))
+        norm_list.append(torch.norm(x).item()-torch.norm(out).item())
+        for block in self.blocks:
+            out1 = block(out)
+            norm_list.append(torch.norm(out).item()-torch.norm(out1).item())
+            out = out1
+        
+        return norm_list

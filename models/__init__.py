@@ -4,3 +4,4 @@ from .MobileNetV2 import *
 from .MobileNetV3 import *
 from .ResNet import *
 from .WideResNet import *
+from .VGG import *

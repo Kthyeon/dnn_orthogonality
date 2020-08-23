@@ -41,11 +41,13 @@ def parse_args():
     parser.add_argument('--pre_trained', action='store_true', help = 'whether use pretrained model or not')
 
     # train & test phase
+    parser.add_argument('--optim', default='sgd', type=str, help='optimization function', choices=['sgd', 'rmsprop', 'adam', 'adagrad', 'adadelta'])
+    parser.add_argument('--lr_sch', default='step', type=str, choices=['step', 'cos', 'exp'], help='lr scheduler (cos/step)')
+    parser.add_argument('--warmstart', action='store_true', help='whether warm start or not')
     parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
     parser.add_argument('--device', default='cuda:0', type=str, help='which GPU to use')
     parser.add_argument('--momentum', default=0.9, type=float, help='momentum')
     parser.add_argument('--nesterov', action='store_true', help='nesterov momentum')
-    parser.add_argument('--lr_sch', default='step', type=str, choices=['step', 'cos'], help='lr scheduler (cos/step)')
     parser.add_argument('--weight_decay', default=1e-5, type=float, help='weight decay')
     parser.add_argument('--num_epochs', default=200, type=int, help='number of epochs to train')
     parser.add_argument('--milestones', default='100,150', type=str, help='milestone epochs')
@@ -55,7 +57,7 @@ def parse_args():
 
     # regularization
     parser.add_argument('--inreg', default='none', type=str, choices=['none', 'cutmix', 'mixup'], help='input regularization')
-    parser.add_argument('--ortho', default='none', type=str, choices=['none','norm','srip','ort','noise'], help='Orthogonal regularization')
+    parser.add_argument('--ortho', default='none', type=str, choices=['none','norm','srip','ort','noise','inputnorm'], help='Orthogonal regularization')
     parser.add_argument('--lamb_list', default='0.0_1.0_0.0_0.0', type=str, help='lambda for each class of filter. [origin, point, depth, fully connected]')
     parser.add_argument('--tp', default='app', type=str, choices=['app', 'ori'], help='orthogonal regularization on depthwise convolution')
 
@@ -69,6 +71,7 @@ def save_checkpoints(state, name):
 
 if __name__ == '__main__':
     args = parse_args()
+    torch.autograd.set_detect_anomaly(True)
     
     # whether fix the seed or not.
     if args.seed is not None:
@@ -92,6 +95,12 @@ if __name__ == '__main__':
         next_path = os.path.join(next_path, args.model)
         if not os.path.isdir(next_path):
             os.mkdir(next_path)
+        next_path = os.path.join(next_path, args.optim)
+        if not os.path.isdir(next_path):
+            os.mkdir(next_path)
+        next_path = os.path.join(next_path, args.lr_sch)
+        if not os.path.isdir(next_path):
+            os.mkdir(next_path)
     
     # gpu
     try:
@@ -108,10 +117,11 @@ if __name__ == '__main__':
     init_model_wts = copy.deepcopy(net.state_dict())
     
     # train and eval
-    best_model_wts = train(net, dataloader, args)
+    first_wts, best_model_wts = train(net, dataloader, args)
     
     state = {}
     state['init_wts'] = init_model_wts
+    state['first_wts'] = first_wts
     state['best_wts'] = best_model_wts
     
-    save_checkpoints(state, './checkpoint/' + args.dataset + '/' + args.model + '/ '+  args.init + '_' + args.opt + '_' + args.ortho + '_'  + args.lamb_list + '_seed' + str(args.seed) + '.pt')
+    save_checkpoints(state, './checkpoint/' + args.dataset + '/' + args.model + '/' + args.optim + '/' + args.lr_sch + '/' args.init + '_' + args.opt + '_' + args.ortho + '_'  + args.lamb_list + '_seed' + str(args.seed) + '.pt')
