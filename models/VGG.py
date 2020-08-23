@@ -72,8 +72,8 @@ class VGG(nn.Module):
             out = layer(x)
             out_norm = torch.sum(torch.square(out.reshape(out.shape[0],-1)), dim=1)
             x_norm = torch.sum(torch.square(x.reshape(x.shape[0],-1)), dim=1)
-            norm_loss += torch.sqrt(torch.sum(torch.abs(out_norm-x_norm)) / x_norm.shape[0])
-            x = out
+            norm_loss += torch.sum(torch.abs(out_norm-x_norm)) / x_norm.shape[0]
+            x = out.clone()
             num += 1
         if self.large:
             x = self.avgpool(x)
@@ -81,7 +81,7 @@ class VGG(nn.Module):
         out = self.classifier(x)
         out_norm = torch.sum(torch.square(out.reshape(out.shape[0],-1)), dim=1)
         x_norm = torch.sum(torch.square(x.reshape(x.shape[0],-1)), dim=1)
-        norm_loss += torch.sqrt(torch.sum(torch.abs(out_norm-x_norm)) / x_norm.shape[0])
+        norm_loss += torch.sum(torch.abs(out_norm-x_norm)) / x_norm.shape[0]
         num += 1
         
         return norm_loss / num 
