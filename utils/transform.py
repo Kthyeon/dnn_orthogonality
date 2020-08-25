@@ -88,7 +88,7 @@ def transform_setter(dataset='cifar10'):
     
     return train_transforms, test_transforms
 
-def data_setter(args, root = '/home/taehyeon/'):
+def data_setter(args, root = './'):
 
     train_transforms, test_transforms = transform_setter(dataset = args.dataset)
     if args.dataset == 'cifar10':
@@ -115,7 +115,10 @@ def data_setter(args, root = '/home/taehyeon/'):
     # Generate the dataloader
     train_loader = torch.utils.data.DataLoader(trainset, batch_size = args.batch_size, shuffle=True, pin_memory = args.pin_memory, num_workers = args.num_workers)
     valid_loader = torch.utils.data.DataLoader(validset, batch_size = args.batch_size, pin_memory = args.pin_memory, num_workers = args.num_workers)
-    test_loader = torch.utils.data.DataLoader(testset, batch_size = args.batch_size, pin_memory = args.pin_memory, num_workers = args.num_workers)
+    if args.dataset != 'image':
+        test_loader = torch.utils.data.DataLoader(testset, batch_size = args.batch_size, pin_memory = args.pin_memory, num_workers = args.num_workers)
+    else:
+        test_loader = torch.utils.data.DataLoader(testset, batch_size = 10, pin_memory = args.pin_memory, num_workers = args.num_workers)
     
     dataloader = {
             'train': train_loader,

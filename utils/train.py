@@ -196,6 +196,8 @@ def train(model, dataloader, args):
                 loss += noise_reg(mdl = model, device = device, lamb_list = lambda_list, opt = args.opt)
             elif args.ortho == 'inputnorm':
                 loss += lambda_list[0] * model.make_norm_dif(images)
+            elif args.ortho == 'downinnorm':
+                loss += lambda_list[0] * model.make_norm_dif(images, down = True)
                 
             # assign weight decay to parameters which is not penalized via ORN.
             if args.ortho == 'none':

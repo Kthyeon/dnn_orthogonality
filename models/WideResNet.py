@@ -31,6 +31,20 @@ class BasicBlock(nn.Module):
             out = F.dropout(out, p=self.droprate, training=self.training)
         out = self.conv2(out)
         return torch.add(x if self.equalInOut else self.convShortcut(x), out)
+    
+    def norm_dif(self, x):
+        norm_loss = 0.0
+        if not self.equalInOut:
+            x = self.relu1(self.bn1(x))
+        else:
+            out = self.relu1(self.bn1(x))
+        out = self.relu2(self.bn2(self.conv1(out if self.equalInOut else x)))
+        if self.droprate > 0:
+            out = F.dropout(out, p=self.droprate, training=self.training)
+        out = self.conv2(out)
+        out = torch.add(x if self.equalInOut else self.convShortcut(x), out)
+        
+        return norm_loss
 
 class NetworkBlock(nn.Module):
     def __init__(self, nb_layers, in_planes, out_planes, block, stride, dropRate=0.0):
@@ -81,6 +95,60 @@ class WideResNet(nn.Module):
         out = F.avg_pool2d(out, 8)
         out = out.view(-1, self.nChannels[3])
         return self.linear(out)
+    
+    def make_norm_dif(self, x, loc = [True, False]):
+        # loc is the location vector whether penalize norm or not.
+        # loc[0]: stem
+        # loc[1]: fully
+        norm_loss = 0.
+        num = 0
+        out = self.conv1(x)
+        if loc[0]:
+            out_norm = torch.sum(torch.square(out.reshape(out.shape[0],-1)), dim=1)
+            x_norm = torch.sum(torch.square(x.reshape(x.shape[0],-1)), dim=1)
+            norm_loss += torch.sum(torch.abs(out_norm-x_norm)) / x_norm.shape[0]
+            num += 1
+        
+        x = out
+        for layer in self.block1:
+            #if layer.downsample:
+            #    x = layer(x)
+            #    continue
+            out = layer(x)
+            norm_loss += layer.norm_dif(x)
+            x = out
+            num += 3
+            
+        for layer in self.block2:
+            #if layer.downsample:
+            #    x = layer(x)
+            #    continue
+            out = layer(x)
+            norm_loss += layer.norm_dif(x)
+            x = out
+            num += 3
+            
+        for layer in self.block3:
+            #if layer.downsample:
+            #    x = layer(x)
+            #    continue
+            out = layer(x)
+            norm_loss += layer.norm_dif(x)
+            x = out
+            num += 3
+        
+        x = self.relu(self.bn1(x))
+        x = F.avg_pool2d(x, 8)
+        x = x.view(-1, self.nChannels[3]) 
+        
+        out = self.linear(x)
+        if loc[1]:
+            out_norm = torch.sum(torch.square(out.reshape(out.shape[0],-1)), dim=1)
+            x_norm = torch.sum(torch.square(x.reshape(x.shape[0],-1)), dim=1)
+            norm_loss += torch.sum(torch.abs(out_norm-x_norm)) / x_norm.shape[0]
+            num += 1
+        
+        return norm_loss / num 
 
     def get_bn_before_relu(self):
         bn1 = self.block2.layer[0].bn1
@@ -119,32 +187,32 @@ class WideResNet(nn.Module):
                 if isinstance(m, nn.Conv2d):
                     nn.init.xavier_normal_(m.weight)
                 elif isinstance(m, nn.BatchNorm2d) or isinstance(m, nn.BatchNorm1d):
-                    nn.init.constant_(m.weight, 1)
-                    nn.init.constant_(m.bias, 0)
+                    m.weight.data.fill_(1)
+                    m.bias.data.zero_()
                 elif isinstance(m, nn.Linear):
                     nn.init.xavier_normal_(m.weight)
-                    nn.init.constant_(m.bias, 0)
+                    m.bias.data.zero_()
         elif self.init == 'kaiming':
             for m in self.modules():
                 if isinstance(m, nn.Conv2d):
                     nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
                 elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
-                    nn.init.constant_(m.weight, 1)
-                    nn.init.constant_(m.bias, 0)
+                    m.weight.data.fill_(1)
+                    m.bias.data.zero_()
                 elif isinstance(m, nn.Linear):
                     nn.init.kaiming_normal_(m.weight)
-                    nn.init.constant_(m.bias, 0)
+                    m.bias.data.zero_()
         elif self.init == 'ort':
             for m in self.modules():
                 if isinstance(m, nn.Conv2d):
                     if m.weight.shape[2] == 1:
                         nn.init.orthogonal_(m.weight)
                 elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
-                    nn.init.constant_(m.weight, 1)
-                    nn.init>constant_(m.bias, 0)
+                    m.weight.data.fill_(1)
+                    m.bias.data.zero_()
                 elif isinstance(m, nn.Linear):
                     nn.init.orthogonal_(m.weight)
-                    nn.init.constant_(m.bias, 0)
+                    m.bias.data.zero_()
         elif self.init == 'z_ort':
             for m in self.modules():
                 if isinstance(m, nn.Conv2d):
@@ -157,8 +225,8 @@ class WideResNet(nn.Module):
                     elif m.weight.shape[2] ==3 and m.weight.shape[1] == 1:
                         nn.init.constant_(m.weight, 0)
                 elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
-                    nn.init.constant_(m.weight, 1)
-                    nn.init>constant_(m.bias, 0)
+                    m.weight.data.fill_(1)
+                    m.bias.data.zero_()
                 elif isinstance(m, nn.Linear):
                     nn.init.orthogonal_(m.weight)
-                    nn.init.constant_(m.bias, 0)
+                    m.bias.data.zero_()

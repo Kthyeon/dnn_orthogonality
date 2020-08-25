@@ -65,10 +65,13 @@ class VGG(nn.Module):
         x = self.classifier(x)
         return x
     
-    def make_norm_dif(self, x):
+    def make_norm_dif(self, x, down=False):
         norm_loss = 0.
         num = 0
         for layer in self.features:
+            if isinstance(layer, nn.MaxPool2d) and down==True:
+                x = layer(x)
+                continue
             out = layer(x)
             out_norm = torch.sum(torch.square(out.reshape(out.shape[0],-1)), dim=1)
             x_norm = torch.sum(torch.square(x.reshape(x.shape[0],-1)), dim=1)
