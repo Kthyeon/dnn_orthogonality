@@ -69,25 +69,29 @@ class VGG(nn.Module):
         norm_loss = 0.
         num = 0
         for layer in self.features:
-            if isinstance(layer, nn.MaxPool2d) and down==True:
+            #if isinstance(layer, nn.MaxPool2d) and down==True:
+            #    x = layer(x)
+            #    continue
+            if isinstance(layer, nn.Conv2d):
+                out = layer(x)
+                out_norm = torch.sum(torch.square(out.reshape(out.shape[0],-1)), dim=1)
+                x_norm = torch.sum(torch.square(x.reshape(x.shape[0],-1)), dim=1)
+                norm_loss += torch.sum(torch.abs(out_norm-x_norm))
+                x = out.clone()
+                num += 1
+            else:
                 x = layer(x)
                 continue
-            out = layer(x)
-            out_norm = torch.sum(torch.square(out.reshape(out.shape[0],-1)), dim=1)
-            x_norm = torch.sum(torch.square(x.reshape(x.shape[0],-1)), dim=1)
-            norm_loss += torch.sum(torch.abs(out_norm-x_norm)) / x_norm.shape[0]
-            x = out.clone()
-            num += 1
         if self.large:
             x = self.avgpool(x)
         x = torch.flatten(x, 1)
         out = self.classifier(x)
         out_norm = torch.sum(torch.square(out.reshape(out.shape[0],-1)), dim=1)
         x_norm = torch.sum(torch.square(x.reshape(x.shape[0],-1)), dim=1)
-        norm_loss += torch.sum(torch.abs(out_norm-x_norm)) / x_norm.shape[0]
+        norm_loss += torch.sum(torch.abs(out_norm-x_norm))
         num += 1
         
-        return norm_loss / num 
+        return norm_loss / num / x.shape[0]
 
     def reset_parameters(self):
         # This is for the initialization of the parameters in the network. For both, beta and gamma in batchnorm is set to 0 and 1, respectively.
