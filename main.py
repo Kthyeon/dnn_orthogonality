@@ -56,8 +56,9 @@ def parse_args():
     parser.add_argument('--eps', default=0.1, type=float, help='smoothing epsilon for label smoothing')
 
     # regularization
+    parser.add_argument('--wd_ablation', action='store_true', help='whether to anatomize')
     parser.add_argument('--inreg', default='none', type=str, choices=['none', 'cutmix', 'mixup'], help='input regularization')
-    parser.add_argument('--ortho', default='none', type=str, choices=['none','norm','srip','ort','noise','inputnorm', 'downinnorm'], help='Orthogonal regularization')
+    parser.add_argument('--ortho', default='none', type=str, choices=['none','norm','srip','ort','ortho','inputnorm', 'downinnorm', 'sin_srip'], help='Orthogonal regularization')
     parser.add_argument('--lamb_list', default='0.0_1.0_0.0_0.0', type=str, help='lambda for each class of filter. [origin, point, depth, fully connected]')
     parser.add_argument('--tp', default='app', type=str, choices=['app', 'ori'], help='orthogonal regularization on depthwise convolution')
 
@@ -125,4 +126,4 @@ if __name__ == '__main__':
     state['first_wts'] = first_wts
     state['best_wts'] = best_model_wts
     
-    save_checkpoints(state, './checkpoint/' + args.dataset + '/' + args.model + '/' + args.optim + '/' + args.lr_sch + '/' + args.init + '_' + args.opt + '_' + args.ortho + '_'  + args.lamb_list + '_seed' + str(args.seed) + '.pt')
+    save_checkpoints(state, './checkpoint/' + args.dataset + '/' + args.model + '/' + args.optim + '/' + args.lr_sch + '/' + args.init + '_' + args.opt + '_' + args.ortho + '_'  + args.lamb_list + '_seed' + str(args.seed) + '_' + str(args.wd_ablation) + '.pt')

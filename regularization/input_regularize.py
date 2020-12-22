@@ -3,6 +3,7 @@ import copy
 import numpy
 from torch import cuda, nn
 from utils.cutmix import rand_bbox
+from torch.autograd import Variable
 
 __all__ = ['mixup', 'cutmix']
 

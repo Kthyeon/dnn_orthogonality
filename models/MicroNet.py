@@ -44,7 +44,11 @@ class MicroBlock(nn.Module):
         self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=1, stride=1, padding=0, bias=False)
         self.bn1 = nn.BatchNorm2d(planes, momentum=0.01)
         
-        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=stride, padding=1, groups=planes, bias=False)
+        # self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=stride, padding=1, groups=planes, bias=False)
+        self.conv2_1 = nn.Conv2d(planes, planes, kernel_size=(3,1), stride=stride, padding=(1,0), groups=planes, bias=False)
+        self.conv2_2 = nn.Conv2d(planes, planes, kernel_size=(1,3), stride=stride, padding=(0,1), groups=planes, bias=False)
+        
+        # self.conv2 = nn.AvgPool2d(kernel_size=3, stride=stride, padding=1)
         self.bn2 = nn.BatchNorm2d(planes, momentum=0.01)
         
         self.conv3 = nn.Conv2d(planes, out_planes, kernel_size=1, stride=1, padding=0, bias=False)
@@ -70,7 +74,7 @@ class MicroBlock(nn.Module):
 
     def forward(self, x):
         out = self.act1(self.bn1(self.conv1(x)))
-        out = self.act2(self.bn2(self.conv2(out)))
+        out = self.act2(self.bn2(self.conv2_1(out) + self.conv2_2(out)))
         out = self.bn3(self.conv3(out))
         
         # Squeeze-Excitation
@@ -158,7 +162,11 @@ class MicroNet(nn.Module):
         #construct network
         self.input_channel = 32
         self.num_classes = num_classes
-        self.conv1 = nn.Conv2d(3, self.input_channel, kernel_size=3, stride=1, padding=1, bias=False)
+        # self.conv1 = nn.Conv2d(3, self.input_channel, kernel_size=3, stride=1, padding=1, bias=False)
+        self.conv1_1 = nn.Conv2d(3, self.input_channel, kernel_size=1, stride=1, padding=0, bias=False)
+        self.conv1_2 = nn.Conv2d(32, 32, kernel_size = 1, stride = 1, padding=0 , bias=False)
+        self.conv1_3 = nn.Conv2d(32, 32, kernel_size = 1, stride = 1, padding=0, bias=False)
+        
         self.bn1 = nn.BatchNorm2d(self.input_channel, momentum=0.01)
         self.blocks = self._make_layers(in_planes=self.input_channel)
         self.avg = nn.AdaptiveAvgPool2d(1)
@@ -240,7 +248,10 @@ class MicroNet(nn.Module):
     
     def forward(self, x):
         #stem
-        out = self.stem_act(self.bn1(self.conv1(x)))
+        tmp1 = x.permute(0,2,1,3).contiguous()
+        tmp2 = x.permute(0,3,2,1).contiguous()
+        x = self.conv1_2(tmp1).permute(0,2,1,3).contiguous() + self.conv1_3(tmp2).permute(0,3,2,1).contiguous() 
+        out = self.stem_act(self.bn1(self.conv1_1(x)))
         out = self.blocks(out)
         out = self.avg(out)
         out = out.view(out.size(0), -1)

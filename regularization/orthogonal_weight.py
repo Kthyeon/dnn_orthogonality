@@ -8,7 +8,7 @@ from torch.nn.functional import normalize
 from torch.autograd import Variable
 from torch import cuda, nn, optim
 
-__all__ = ['wd_reg', 'norm_reg', 'srip_reg','or_reg','noise_reg']
+__all__ = ['wd_reg', 'norm_reg', 'srip_reg','or_reg','ortho_reg']
 
 def conv_ortho(weight, device):    
     cols = weight[0].numel()
@@ -82,9 +82,9 @@ def wd_reg(mdl, device, lamb_list=[0.0, 1.0, 0.0, 0.0], opt='both'):
                 continue
             
             if l2_reg is None:
-                l2_reg = lamb * torch.sum(W.square())
+                l2_reg = lamb * torch.sum(W.square()) / 2
             else:
-                l2_reg += lamb * torch.sum(W.square())
+                l2_reg += lamb * torch.sum(W.square()) / 2
         else:
             continue
     
@@ -200,7 +200,6 @@ def norm_reg(mdl, device, lamb_list=[0.0, 1.0, 0.0, 0.0], opt = 'both'):
                 num += 1
         else:
             continue
-    print(l2_reg/num)
     return l2_reg / num
 
 #####################################################################################################
@@ -208,7 +207,7 @@ def norm_reg(mdl, device, lamb_list=[0.0, 1.0, 0.0, 0.0], opt = 'both'):
 # This is from the work: 'Can We Gain More from Orthogonality Regularizations in Training Deep CNNs?,' 
 # https://arxiv.org/abs/1810.09102.
 
-def srip_reg(mdl, device, lamb_list=[0.0, 1.0, 0.0, 0.0], opt='both', tp='app'):
+def srip_reg(mdl, device, lamb_list=[0.0, 1.0, 0.0, 0.0], opt='both', tp='app', level='iden'):
     # Consider the below facotrs.
     # factor1: which kind layer (e.g., original(stem), pointwise, depthwise, fc_layer)
     # factor2: power of regularization (i.e., lambda). Maybe, we should differ from each class of layer's lambda.
@@ -270,8 +269,10 @@ def srip_reg(mdl, device, lamb_list=[0.0, 1.0, 0.0, 0.0], opt='both', tp='app'):
                 m = torch.matmul(w1, wt)
                 ident = Variable(torch.eye(m.shape[0], m.shape[0])).to(device)
                 
-
-            w_tmp = (m-ident)
+            if level == 'iden':
+                w_tmp = (m-ident)
+            else:
+                w_tmp = m
             height = w_tmp.size(0)
             u = normalize(w_tmp.new_empty(height).normal_(0,1), dim=0, eps=1e-12)
             v = normalize(torch.matmul(w_tmp.t(), u), dim=0, eps=1e-12)
@@ -287,7 +288,6 @@ def srip_reg(mdl, device, lamb_list=[0.0, 1.0, 0.0, 0.0], opt='both', tp='app'):
         else:
             continue
     
-    print(l2_reg/num)
 
     return l2_reg/num
 
@@ -335,28 +335,32 @@ def or_reg(mdl, device, lamb_list=[0.0, 1.0, 0.0, 0.0], opt = 'both'):
             else:
                 continue
 
-            cols = W[0].numel()
-            w1 = W.view(-1, cols)
+            cols = W[0].numel() 
+            w1 = W.view(-1, cols) # out_channels x all
             wt = torch.transpose(w1, 0, 1)
             m = torch.matmul(wt, w1)
-
-            w_tmp = (m - torch.diagflat(torch.diagonal(m)))
-            height = w_tmp.size(0)
-            u = normalize(w_tmp.new_empty(height).normal_(0,1), dim=0, eps=1e-12)
-            v = normalize(torch.matmul(w_tmp.t(), u), dim=0, eps=1e-12)
-            u = normalize(torch.matmul(w_tmp, v), dim=0, eps=1e-12)
-            sigma = torch.dot(u, torch.matmul(w_tmp, v))
+            
+#             w_tmp = (m - torch.diagflat(torch.diagonal(m)))
+#             height = w_tmp.size(0)
+#             u = normalize(w_tmp.new_empty(height).normal_(0,1), dim=0, eps=1e-12)
+#             v = normalize(torch.matmul(w_tmp.t(), u), dim=0, eps=1e-12)
+#             u = normalize(torch.matmul(w_tmp, v), dim=0, eps=1e-12)
+#             sigma = torch.dot(u, torch.matmul(w_tmp, v))
+            row_sigma = torch.norm(m, p=1, dim=1)
+            w_tmp = row_sigma - torch.ones_like(row_sigma)
+            
+            sigma = torch.norm(w_tmp, p=1)
             
             if l2_reg is None:
-                l2_reg = lamb * (sigma)**2
+                l2_reg = lamb * (sigma)
                 num = 1
             else:
-                l2_reg += lamb * (sigma)**2
+                l2_reg += lamb * (sigma)
                 num += 1
         else:
             continue
 
-    return l2_reg/num   
+    return l2_reg / num
 
 #####################################################################################################
 #####################################################################################################
@@ -365,7 +369,7 @@ def or_reg(mdl, device, lamb_list=[0.0, 1.0, 0.0, 0.0], opt = 'both'):
 # How to apply the regularization with noise?
 # How about regularizing the weight matrix perturbed by gaussian random noise?
 
-def noise_reg(mdl, device, lamb_list=[0.0, 1.0, 0.0, 0.0], opt = 'both'):
+def ortho_reg(mdl, device, lamb_list=[0.0, 1.0, 0.0, 0.0], opt = 'both'):
     # Consider the below facotrs.
     # factor1: which kind layer (e.g., pointwise, depthwise, original, fc_layer)
     # factor2: power of regularization (i.e., lambda). Maybe, we should differ from each class of layer's lambda.
@@ -403,31 +407,28 @@ def noise_reg(mdl, device, lamb_list=[0.0, 1.0, 0.0, 0.0], opt = 'both'):
             else:
                 continue
 
-            cols = W[0].numel()
-            w1 = W.view(-1, cols)
-            #generate the noise semi-orthogonal matrix
-            noise = torch.randn_like(w1) #gaussian distribution 0,1
-            torch.nn.init.orthogonal_(noise) #generate the semi-orthogonal noise matrix
-            noiset = torch.transpose(noise, 0, 1)
-
+            cols = W[0].numel() 
+            w1 = W.view(-1, cols) # out_channels x all
             wt = torch.transpose(w1, 0, 1)
-            m = torch.matmul(torch.matmul(noise, wt), torch.matmul(w1, noiset)) # noiset * wt * w * noise
-            ident = Variable(torch.eye(w1.shape[0], w1.shape[0])).to(device)
-            w_tmp = (m-ident)
-            height = w_tmp.size(0)
-            u = normalize(w_tmp.new_empty(height).normal_(0,1), dim=0, eps=1e-12)
-            v = normalize(torch.matmul(w_tmp.t(), u), dim=0, eps=1e-12)
-            u = normalize(torch.matmul(w_tmp, v), dim=0, eps=1e-12)
-            sigma = torch.dot(u, torch.matmul(w_tmp, v))
-            
+            m = torch.matmul(wt, w1)
+
+            w_tmp = (m-torch.diag(m))
+#             height = w_tmp.size(0)
+#             u = normalize(w_tmp.new_empty(height).normal_(0,1), dim=0, eps=1e-12)
+#             v = normalize(torch.matmul(w_tmp.t(), u), dim=0, eps=1e-12)
+#             u = normalize(torch.matmul(w_tmp, v), dim=0, eps=1e-12)
+#             sigma = torch.dot(u, torch.matmul(w_tmp, v))
+            sigma = torch.norm(w_tmp)
             if l2_reg is None:
                 l2_reg = lamb * (sigma)**2
+                num = 1
             else:
                 l2_reg += lamb * (sigma)**2
+                num += 1
         else:
             continue
 
-    return l2_reg
+    return l2_reg / num
 
 
 #####################################################################################################
