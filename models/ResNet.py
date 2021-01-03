@@ -64,27 +64,27 @@ class BasicBlock(nn.Module):
         return out
     
     def norm_dif(self, x):
-        norm_loss = 0.0
+        norm_loss = []
         x1 = F.relu(x)
         residual = x1
 
         out = self.conv1(x1)
-        out_norm = torch.sum(torch.square(out.reshape(out.shape[0],-1)), dim=1)
         x_norm = torch.sum(torch.square(x1.reshape(x1.shape[0],-1)), dim=1)
-        norm_loss += torch.sum(torch.abs(out_norm-x_norm))/x_norm.shape[0]
         if self.batchnorm:
             out = self.bn1(out)
+        out_norm = torch.sum(torch.square(out.reshape(out.shape[0],-1)), dim=1)
+        norm_loss.append((torch.sum(torch.abs(out_norm/x_norm)) / x_norm.shape[0]).item())
         out = self.relu(out)
         
         
 
         out1 = self.conv2(out)
-        out_norm = torch.sum(torch.square(out1.reshape(out1.shape[0],-1)), dim=1)
         x_norm = torch.sum(torch.square(out.reshape(out.shape[0],-1)), dim=1)
-        norm_loss += torch.sum(torch.abs(out_norm-x_norm))/x_norm.shape[0]
         if self.batchnorm:
             out1 = self.bn2(out1)
-        
+        out_norm = torch.sum(torch.square(out1.reshape(out1.shape[0],-1)), dim=1)
+        norm_loss.append((torch.sum(torch.abs(out_norm/x_norm)) / x_norm.shape[0]).item())
+
 
         if self.downsample is not None:
             residual = self.downsample(x1)
@@ -95,7 +95,7 @@ class BasicBlock(nn.Module):
         #x_norm = torch.square(torch.norm(x.reshape(x.shape[0],-1), dim=1))
         #norm_loss += torch.sum(torch.abs(out_norm-x_norm))/x_norm.shape[0]
 
-        return norm_loss / 2
+        return norm_loss
 
 
 class Bottleneck(nn.Module):
@@ -144,7 +144,7 @@ class Bottleneck(nn.Module):
     
     def norm_dif(self, x):
         epsilon = 1e-5
-        norm_loss = 0.
+        norm_loss = []
         
         x1 = F.relu(x)
         residual = x1
@@ -152,7 +152,7 @@ class Bottleneck(nn.Module):
         out = self.conv1(x1)
         out_norm = torch.sum(torch.square(out.reshape(out.shape[0],-1)), dim=1)
         x_norm = torch.sum(torch.square(x1.reshape(x1.shape[0],-1)), dim=1)
-        norm_loss += torch.sum(torch.abs(out_norm-x_norm))/x_norm.shape[0]
+        norm_loss.append((torch.sum(torch.abs(out_norm/x_norm)) / x_norm.shape[0]).item())
         if self.batchnorm:
             out = self.bn1(out)
         out = self.relu(out)
@@ -161,7 +161,7 @@ class Bottleneck(nn.Module):
         out1 = self.conv2(out)
         out_norm = torch.sum(torch.square(out1.reshape(out1.shape[0],-1)), dim=1)
         x_norm = torch.sum(torch.square(out.reshape(out.shape[0],-1)), dim=1)
-        norm_loss += torch.sum(torch.abs(out_norm-x_norm))/x_norm.shape[0]
+        norm_loss.append((torch.sum(torch.abs(out_norm/x_norm)) / x_norm.shape[0]).item())
         if self.batchnorm:
             out1 = self.bn2(out1)
         out1 = self.relu(out1)
@@ -170,7 +170,7 @@ class Bottleneck(nn.Module):
         out = self.conv3(out1)
         out_norm = torch.sum(torch.square(out.clone().reshape(out.shape[0],-1)), dim=1)
         x_norm = torch.sum(torch.square(out1.reshape(out1.shape[0],-1)), dim=1)
-        norm_loss += torch.sum(torch.abs(out_norm-x_norm))/x_norm.shape[0]
+        norm_loss.append((torch.sum(torch.abs(out_norm/x_norm)) / x_norm.shape[0]).item())
         if self.batchnorm:
             out = self.bn3(out)
         
@@ -183,7 +183,7 @@ class Bottleneck(nn.Module):
         #x_norm = torch.sum(torch.square(x.clone().reshape(x.shape[0],-1)), dim=1)
         #norm_loss += torch.sum(torch.abs(out_norm-x_norm))/x_norm.shape[0]
         
-        return norm_loss  / 3
+        return norm_loss
     
 
 class ResNet(nn.Module):
@@ -242,17 +242,16 @@ class ResNet(nn.Module):
         # loc is the location vector whether penalize norm or not.
         # loc[0]: stem
         # loc[1]: fully
-        norm_loss = 0.
+        norm_loss = []
         num = 0
+        x_norm = torch.sum(torch.square(x.reshape(x.shape[0],-1)), dim=1)
         out = self.conv1(x)
-        if loc[0]:
-            out_norm = torch.sum(torch.square(out.reshape(out.shape[0],-1)), dim=1)
-            x_norm = torch.sum(torch.square(x.reshape(x.shape[0],-1)), dim=1)
-            norm_loss += torch.sum(torch.abs(out_norm-x_norm)) / x_norm.shape[0]
-            num += 1
+
         if self.batchnorm:
             out = self.bn1(out)
-        
+        if loc[0]:
+            out_norm = torch.sum(torch.square(out.reshape(out.shape[0],-1)), dim=1)
+            norm_loss.append((torch.sum(torch.abs(out_norm/x_norm)) / x_norm.shape[0]).item())
         
         x = out
         for layer in self.layer1:
@@ -290,11 +289,11 @@ class ResNet(nn.Module):
         if loc[1]:
             out_norm = torch.sum(torch.square(out.reshape(out.shape[0],-1)), dim=1)
             x_norm = torch.sum(torch.square(x.reshape(x.shape[0],-1)), dim=1)
-            norm_loss += torch.sum(torch.abs(out_norm-x_norm)) / x_norm.shape[0]
-            num += 1
-        
-        return norm_loss / num 
+            norm_loss.append((torch.sum(torch.abs(out_norm/x_norm)) / x_norm.shape[0]).item())
 
+        
+        return norm_loss
+    
     def forward(self, x):
 
         x = self.conv1(x)
@@ -405,3 +404,6 @@ class ResNet(nn.Module):
                     nn.init.orthogonal_(m.weight)
                     m.bias.data.zero_()
 
+def ResNet50_4():
+    
+    return ResNet(opt = 'both', init = 'ortho', num_classes = 10, batchnorm = True, width = 4, depth = 50, bottleneck= False)

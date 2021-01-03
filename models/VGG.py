@@ -66,7 +66,7 @@ class VGG(nn.Module):
         return x
     
     def make_norm_dif(self, x, down=False):
-        norm_loss = 0.
+        norm_loss = []
         num = 0
         for layer in self.features:
             #if isinstance(layer, nn.MaxPool2d) and down==True:
@@ -74,11 +74,14 @@ class VGG(nn.Module):
             #    continue
             if isinstance(layer, nn.Conv2d):
                 out = layer(x)
-                out_norm = torch.sum(torch.square(out.reshape(out.shape[0],-1)), dim=1)
-                x_norm = torch.sum(torch.square(x.reshape(x.shape[0],-1)), dim=1)
-                norm_loss += torch.sum(torch.abs(out_norm-x_norm))
+                tmp = x.clone()
                 x = out.clone()
                 num += 1
+            elif isinstance(layer, nn.BatchNorm2d):
+                out = layer(x)
+                out_norm = torch.sum(torch.square(out.reshape(out.shape[0],-1)), dim=1)
+                x_norm = torch.sum(torch.square(tmp.reshape(tmp.shape[0],-1)), dim=1)
+                norm_loss.append(torch.sum(torch.abs(out_norm-x_norm)) / x_norm.shape[0].item())
             else:
                 x = layer(x)
                 continue

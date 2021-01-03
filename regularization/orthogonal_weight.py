@@ -193,10 +193,10 @@ def norm_reg(mdl, device, lamb_list=[0.0, 1.0, 0.0, 0.0], opt = 'both'):
             sigma = torch.norm(w_tmp)
             
             if l2_reg is None:
-                l2_reg = lamb * sigma
+                l2_reg = lamb * sigma**2
                 num = 1
             else:
-                l2_reg += lamb * sigma
+                l2_reg += lamb * sigma**2
                 num += 1
         else:
             continue
