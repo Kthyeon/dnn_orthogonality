@@ -124,10 +124,15 @@ def train(model, dataloader, args):
     batch_params = [module for name, module in model.named_parameters() if module.ndimension() == 1 and 'bn' in name]
     other_params = [module for module in model.parameters() if module.ndimension() > 1]
     
+    if args.ortho == 'none':
+        wd_tmp = weight_decay
+    else:
+        wd_tmp = 0.
+    
     # Optimizer for training.
     if args.optim == 'sgd': 
         optimizer = torch.optim.SGD([{'params' : batch_params, 'weight_decay': 0},
-            {'params': other_params, 'weight_decay': 0}], lr=learning_rate, momentum=momentum, nesterov=nesterov)
+            {'params': other_params, 'weight_decay': wd_tmp}], lr=learning_rate, momentum=momentum, nesterov=nesterov)
     elif args.optim == 'rmsprop':
         optimizer = torch.optim.RMSprop([{'params' : batch_params, 'weight_decay': 0},
             {'params': other_params, 'weight_decay': 0}], lr=0.01, alpha=0.99, eps=1e-08, weight_decay=0, momentum=momentum, centered=False)
@@ -202,12 +207,13 @@ def train(model, dataloader, args):
                 loss += lambda_list[0] * model.make_norm_dif(images, down = True)
                 
             # assign weight decay to parameters which is not penalized via ORN.
-            if args.ortho == 'none':
-                lambda_list = [0.0, 0.0, 0.0, 0.0]
-            if args.wd_ablation:
-                loss += weight_decay * wd_reg(mdl=model, device =device, lamb_list=[1.0 if lamb==0.0 else 0.0 for lamb in lambda_list])
-            else:
-                loss += weight_decay * wd_reg(mdl=model, device =device, lamb_list=[1.0, 1.0, 1.0, 1.0])
+#             if args.ortho == 'none':
+#                 lambda_list = [0.0, 0.0, 0.0, 0.0]
+            if not args.ortho != 'none':
+                if args.wd_ablation:
+                    loss += weight_decay * wd_reg(mdl=model, device =device, lamb_list=[1.0 if lamb==0.0 else 0.0 for lamb in lambda_list])
+                else:
+                    loss += weight_decay * wd_reg(mdl=model, device =device, lamb_list=[1.0, 1.0, 1.0, 1.0])
             
 
             prec1, _ = accuracy(outputs.data, labels.data, topk=(1, 5))

@@ -36,7 +36,7 @@ def mean_list(data='cifar10'):
     try:
         if data == 'cifar10':
             mean = [0.4914, 0.4822, 0.4465]
-            std = [0.2023, 0.1994, 0.2010]
+            std = [0.2470, 0.243, 0.261]
             img_size = 32
         elif data == 'cifar100':
             mean = [0.5071, 0.4865, 0.4409]

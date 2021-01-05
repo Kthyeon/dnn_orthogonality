@@ -15,7 +15,7 @@ def conv_ortho(weight, device):
     w1 = weight.view(-1, cols)
     wt = torch.transpose(w1, 0, 1)
     m = torch.matmul(wt, w1)
-    ident = Variable(torch.eye(cols, cols) / numpy.sqrt(cols)).to(device)
+    ident = Variable(torch.eye(cols, cols)).to(device)
 
     w_tmp = (m-ident)
     sigma = torch.norm(w_tmp)
@@ -26,26 +26,26 @@ def conv_ortho(weight, device):
 #####################################################################################################
 #####################################################################################################
 
-def depth_ortho(weight, tp = 'app'):
-    # tp: app (근사) & ori (있는 그대로)
-    l2_reg = 0
-    if tp =='app':
-        for W in weight:
-            tmp = 0
-            W = W.squeeze()
-            for row in W:
-                tmp += torch.sum(torch.square(row))
-            l2_reg += torch.abs(tmp-1)
-    elif tp=='ori':
-        for W in weight:
-            tmp = 0
-            W = W.squeeze()
-            for row in W:
-                tmp += torch.sum(torch.square(row))
-            l2_reg += torch.abs(tmp-1)
-            l2_reg += torch.abs(W[0,0]*W[0,1]+W[0,1]*W[0,2]+W[1,0]*W[1,1]+W[1,1]*W[1,2]+W[2,0]*W[2,1]+W[2,1]*W[2,2])
-            l2_reg += torch.abs(W[0,0]*W[0,2]+W[1,0]*W[1,2]+W[2,0]*W[2,2])
-    return l2_reg
+# def depth_ortho(weight, tp = 'app'):
+#     # tp: app (근사) & ori (있는 그대로)
+#     l2_reg = 0
+#     if tp =='app':
+#         for W in weight:
+#             tmp = 0
+#             W = W.squeeze()
+#             for row in W:
+#                 tmp += torch.sum(torch.square(row))
+#             l2_reg += torch.abs(tmp-1)
+#     elif tp=='ori':
+#         for W in weight:
+#             tmp = 0
+#             W = W.squeeze()
+#             for row in W:
+#                 tmp += torch.sum(torch.square(row))
+#             l2_reg += torch.abs(tmp-1)
+#             l2_reg += torch.abs(W[0,0]*W[0,1]+W[0,1]*W[0,2]+W[1,0]*W[1,1]+W[1,1]*W[1,2]+W[2,0]*W[2,1]+W[2,1]*W[2,2])
+#             l2_reg += torch.abs(W[0,0]*W[0,2]+W[1,0]*W[1,2]+W[2,0]*W[2,2])
+#     return l2_reg
 
 #####################################################################################################
 #####################################################################################################
@@ -155,23 +155,25 @@ def norm_reg(mdl, device, lamb_list=[0.0, 1.0, 0.0, 0.0], opt = 'both'):
                     if module.weight.shape[1] == 1:
                         # Depthwise convolution.
                         lamb = lamb_list[2]
-                        if l2_reg is None:
-                            l2_reg = lamb * depth_ortho(W)
-                            num = 1
-                        else:
-                            l2_reg += lamb * depth_ortho(W)
-                            num += 1
-                        continue
+                        W = module.weight
+#                         if l2_reg is None:
+#                             l2_reg = lamb * conv_ortho(W)
+#                             num = 1
+#                         else:
+#                             l2_reg += lamb * conv_ortho(W)
+#                             num += 1
+#                         continue
                     else:
                         # Original convolution. (Maybe including stem conv)
                         lamb = lamb_list[0]
-                        if l2_reg is None:
-                            l2_reg = lamb * conv_ortho(W, device)
-                            num = 1
-                        else:
-                            l2_reg += lamb * conv_ortho(W, device)
-                            num += 1
-                        continue
+                        W = module.weight
+#                         if l2_reg is None:
+#                             l2_reg = lamb * conv_ortho(W, device)
+#                             num = 1
+#                         else:
+#                             l2_reg += lamb * conv_ortho(W, device)
+#                             num += 1
+#                         continue
             elif isinstance(module, nn.Linear):
                 # fully connected layer
                 W = module.weight
@@ -235,23 +237,25 @@ def srip_reg(mdl, device, lamb_list=[0.0, 1.0, 0.0, 0.0], opt='both', tp='app', 
                     if module.weight.shape[1] == 1:
                         # Depthwise convolution.
                         lamb = lamb_list[2]
-                        if l2_reg is None:
-                            l2_reg = lamb * depth_ortho(W, tp)
-                            num = 1
-                        else:
-                            l2_reg += lamb * depth_ortho(W, tp)
-                            num += 1
-                        continue
+                        W = module.weight
+#                         if l2_reg is None:
+#                             l2_reg = lamb * conv_ortho(W, tp)
+#                             num = 1
+#                         else:
+#                             l2_reg += lamb * conv_ortho(W, tp)
+#                             num += 1
+#                         continue
                     else:
                         # Original convolution. (Maybe including stem conv)
                         lamb = lamb_list[0]
-                        if l2_reg is None:
-                            l2_reg = lamb * conv_ortho(W, device)
-                            num = 1
-                        else:
-                            l2_reg += lamb * conv_ortho(W, device)
-                            num += 1
-                        continue
+                        W = module.weight
+#                         if l2_reg is None:
+#                             l2_reg = lamb * conv_ortho(W, device)
+#                             num = 1
+#                         else:
+#                             l2_reg += lamb * conv_ortho(W, device)
+#                             num += 1
+#                         continue
             elif isinstance(module, nn.Linear):
                 # fully connected layer
                 W = module.weight
@@ -272,7 +276,7 @@ def srip_reg(mdl, device, lamb_list=[0.0, 1.0, 0.0, 0.0], opt='both', tp='app', 
             if level == 'iden':
                 w_tmp = (m-ident)
             else:
-                w_tmp = m
+                w_tmp = w1
             height = w_tmp.size(0)
             u = normalize(w_tmp.new_empty(height).normal_(0,1), dim=0, eps=1e-12)
             v = normalize(torch.matmul(w_tmp.t(), u), dim=0, eps=1e-12)
