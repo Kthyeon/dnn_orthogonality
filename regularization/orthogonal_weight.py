@@ -7,8 +7,9 @@ import numpy
 from torch.nn.functional import normalize
 from torch.autograd import Variable
 from torch import cuda, nn, optim
+import torch.nn.functional as F
 
-__all__ = ['wd_reg', 'norm_reg', 'srip_reg','or_reg','ortho_reg']
+__all__ = ['wd_reg', 'norm_reg', 'srip_reg','or_reg','ortho_reg', 'ortho']
 
 def conv_ortho(weight, device):    
     cols = weight[0].numel()
@@ -272,7 +273,8 @@ def srip_reg(mdl, device, lamb_list=[0.0, 1.0, 0.0, 0.0], opt='both', tp='app', 
             else:
                 m = torch.matmul(w1, wt)
                 ident = Variable(torch.eye(m.shape[0], m.shape[0])).to(device)
-                
+   
+            
             if level == 'iden':
                 w_tmp = (m-ident)
             else:
@@ -294,6 +296,37 @@ def srip_reg(mdl, device, lamb_list=[0.0, 1.0, 0.0, 0.0], opt='both', tp='app', 
     
 
     return l2_reg/num
+
+
+
+def ortho(mdl, device):
+    ortho_penalty = []
+    cnt = 0
+    for m in mdl.modules():
+        if isinstance(m, nn.Conv2d):
+            if m.kernel_size == (7, 7) or m.weight.shape[1] == 3:
+                continue
+            o = ortho_conv(m, device)
+            cnt += 1
+            ortho_penalty.append(o)
+    ortho_penalty = sum(ortho_penalty)
+    return ortho_penalty
+
+def ortho_conv(m, device):
+    operator = m.weight
+    operand = torch.cat(torch.chunk(m.weight, m.groups, dim=0), dim=1)
+    transposed = m.weight.shape[1] < m.weight.shape[0]
+    num_channels = m.weight.shape[1] if transposed else m.weight.shape[0]
+    if transposed:
+        operand = operand.transpose(1, 0)
+        operator = operator.transpose(1, 0)
+    gram = F.conv2d(operand, operator, padding=(m.kernel_size[0] - 1, m.kernel_size[1] - 1),
+                    stride=m.stride, groups=m.groups)
+    identity = torch.zeros(gram.shape).to(device)
+    identity[:, :, identity.shape[2] // 2, identity.shape[3] // 2] = torch.eye(num_channels).repeat(1, m.groups)
+    out = torch.sum((gram - identity) ** 2.0) / 2.0
+    return out
+
 
 #####################################################################################################
 #####################################################################################################

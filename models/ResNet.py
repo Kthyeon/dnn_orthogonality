@@ -150,30 +150,29 @@ class Bottleneck(nn.Module):
         residual = x1
 
         out = self.conv1(x1)
-        out_norm = torch.sum(torch.square(out.reshape(out.shape[0],-1)), dim=1)
         x_norm = torch.sum(torch.square(x1.reshape(x1.shape[0],-1)), dim=1)
+        out_norm = torch.sum(torch.square(out.reshape(out.shape[0],-1)), dim=1)
         norm_loss.append((torch.sum(torch.abs(out_norm/x_norm)) / x_norm.shape[0]).item())
         if self.batchnorm:
             out = self.bn1(out)
         out = self.relu(out)
-        
+
         
         out1 = self.conv2(out)
-        out_norm = torch.sum(torch.square(out1.reshape(out1.shape[0],-1)), dim=1)
         x_norm = torch.sum(torch.square(out.reshape(out.shape[0],-1)), dim=1)
+        out_norm = torch.sum(torch.square(out1.reshape(out1.shape[0],-1)), dim=1)
         norm_loss.append((torch.sum(torch.abs(out_norm/x_norm)) / x_norm.shape[0]).item())
         if self.batchnorm:
             out1 = self.bn2(out1)
         out1 = self.relu(out1)
         
-
         out = self.conv3(out1)
-        out_norm = torch.sum(torch.square(out.clone().reshape(out.shape[0],-1)), dim=1)
         x_norm = torch.sum(torch.square(out1.reshape(out1.shape[0],-1)), dim=1)
+        out_norm = torch.sum(torch.square(out.clone().reshape(out.shape[0],-1)), dim=1)
         norm_loss.append((torch.sum(torch.abs(out_norm/x_norm)) / x_norm.shape[0]).item())
+        
         if self.batchnorm:
             out = self.bn3(out)
-        
         
         if self.downsample is not None:
             residual = self.downsample(x1)
@@ -238,7 +237,7 @@ class ResNet(nn.Module):
 
         return nn.Sequential(*layers)
     
-    def make_norm_dif(self, x, loc = [True, False], down = False):
+    def make_norm_dif(self, x, loc = [True, True], down = False):
         # loc is the location vector whether penalize norm or not.
         # loc[0]: stem
         # loc[1]: fully
@@ -246,12 +245,12 @@ class ResNet(nn.Module):
         num = 0
         x_norm = torch.sum(torch.square(x.reshape(x.shape[0],-1)), dim=1)
         out = self.conv1(x)
-
-        if self.batchnorm:
-            out = self.bn1(out)
         if loc[0]:
             out_norm = torch.sum(torch.square(out.reshape(out.shape[0],-1)), dim=1)
             norm_loss.append((torch.sum(torch.abs(out_norm/x_norm)) / x_norm.shape[0]).item())
+        
+        if self.batchnorm:
+            out = self.bn1(out)
         
         x = out
         for layer in self.layer1:
@@ -386,6 +385,16 @@ class ResNet(nn.Module):
                 elif isinstance(m, nn.Linear):
                     nn.init.orthogonal_(m.weight)
                     m.bias.data.zero_()
+        elif self.init =='delta':
+            for m in self.modules():
+                if isinstance(m, nn.Conv2d):
+                    nn.init.dirac_(m.weight)
+                elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
+                    m.weight.data.fill_(1)
+                    m.bias.data.zero_()
+                elif isinstance(m, nn.Linear):
+                    nn.init.orthogonal_(m.weight)
+                    m.bias.data.zero_()
         elif self.init == 'z_ort':
             for m in self.modules():
                 if isinstance(m, nn.Conv2d):
@@ -407,3 +416,43 @@ class ResNet(nn.Module):
 def ResNet50_4():
     
     return ResNet(opt = 'both', init = 'ortho', num_classes = 10, batchnorm = True, width = 4, depth = 50, bottleneck= False)
+
+
+def conv_delta_orthogonal_(tensor, gain=1.):
+    r"""Initializer that generates a delta orthogonal kernel for ConvNets.
+    The shape of the tensor must have length 3, 4 or 5. The number of input
+    filters must not exceed the number of output filters. The center pixels of the
+    tensor form an orthogonal matrix. Other pixels are set to be zero. See
+    algorithm 2 in [Xiao et al., 2018]: https://arxiv.org/abs/1806.05393
+    Args:
+        tensor: an n-dimensional `torch.Tensor`, where :math:`3 \leq n \leq 5`
+        gain: Multiplicative factor to apply to the orthogonal matrix. Default is 1.
+    Examples:
+        >>> w = torch.empty(5, 4, 3, 3)
+        >>> nn.init.conv_delta_orthogonal_(w)
+    """
+    if tensor.ndimension() < 3 or tensor.ndimension() > 5:
+        raise ValueError("The tensor to initialize must be at least "
+                       "three-dimensional and at most five-dimensional")
+    
+    if tensor.size(1) > tensor.size(0):
+        raise ValueError("In_channels cannot be greater than out_channels.")
+    
+    # Generate a random matrix
+    a = tensor.new(tensor.size(0), tensor.size(0)).normal_(0, 1)
+    # Compute the qr factorization
+    q, r = torch.qr(a)
+    # Make Q uniform
+    d = torch.diag(r, 0)
+    q *= d.sign()
+    q = q[:, :tensor.size(1)]
+    with torch.no_grad():
+        tensor.zero_()
+        if tensor.ndimension() == 3:
+            tensor[:, :, (tensor.size(2)-1)//2] = q
+        elif tensor.ndimension() == 4:
+            tensor[:, :, (tensor.size(2)-1)//2, (tensor.size(3)-1)//2] = q
+        else:
+            tensor[:, :, (tensor.size(2)-1)//2, (tensor.size(3)-1)//2, (tensor.size(4)-1)//2] = q
+        tensor.mul_(math.sqrt(gain))
+    return tensor

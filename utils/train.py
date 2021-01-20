@@ -57,6 +57,7 @@ def load_model(model_name, args):
             width = int(name_list[2])
             bottlen = True if name_list[3]=='t' else False
             batchn = True if name_list[4] == 'bn' else False
+            print(args.init)
             model = ResNet(opt = args.opt, init = args.init, num_classes = args.num_classes, batchnorm = batchn, width = width, depth = depth, bottleneck= bottlen)
         elif name_list[0] == 'wrn':
             # wrn-28-4
@@ -163,6 +164,7 @@ def train(model, dataloader, args):
     
     lambda_list = args.lamb_list.split('_')
     lambda_list = [float(lamb) for lamb in lambda_list]
+    print(lambda_list)
 
     for epoch in range(num_epochs):
         model.train()
@@ -194,7 +196,8 @@ def train(model, dataloader, args):
             if args.ortho == 'norm':
                 loss += norm_reg(mdl = model, device = device, lamb_list = lambda_list, opt = args.opt)
             elif args.ortho == 'srip':
-                loss += srip_reg(mdl = model, device = device, lamb_list = lambda_list, opt = args.opt, tp = args.tp)
+                if (i !=0):
+                    loss += srip_reg(mdl = model, device = device, lamb_list = lambda_list, opt = args.opt, tp = args.tp)
             elif args.ortho == 'sin_srip':
                 loss += srip_reg(mdl = model, device = device, lamb_list = lambda_list, opt = args.opt, tp = args.tp, level=None)
             elif args.ortho == 'ort':
@@ -205,6 +208,8 @@ def train(model, dataloader, args):
                 loss += lambda_list[0] * model.make_norm_dif(images)
             elif args.ortho == 'downinnorm':
                 loss += lambda_list[0] * model.make_norm_dif(images, down = True)
+            elif args.ortho == 'isometry':
+                loss += lambda_list[0] * ortho(model, device)
                 
             # assign weight decay to parameters which is not penalized via ORN.
 #             if args.ortho == 'none':

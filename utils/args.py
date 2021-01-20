@@ -18,7 +18,7 @@ def parse_args():
     # model : resnet
     parser.add_argument('--model', default='resnet-50', type=str, help='name of the model to train')
     parser.add_argument('--opt', default='both', type=str, choices=['none', 'exp', 'rec', 'both'], help='position for ortho reg of pointwise conv')
-    parser.add_argument('--init', default='xavier', type=str, choices=['xavier','kaiming','ort','z_ort'], help='initialization for network')
+    parser.add_argument('--init', default='xavier', type=str, choices=['xavier','kaiming','ort','z_ort','delta'], help='initialization for network')
     parser.add_argument('--pre_trained', action='store_true', help = 'whether use pretrained model or not')
 
     # train & test phase
@@ -39,7 +39,7 @@ def parse_args():
     # regularization
     parser.add_argument('--wd_ablation', action='store_true', help='whether to anatomize')
     parser.add_argument('--inreg', default='none', type=str, choices=['none', 'cutmix', 'mixup'], help='input regularization')
-    parser.add_argument('--ortho', default='none', type=str, choices=['none','norm','srip','ort','ortho','inputnorm', 'downinnorm', 'sin_srip'], help='Orthogonal regularization')
+    parser.add_argument('--ortho', default='none', type=str, choices=['none','norm','srip','ort','ortho','inputnorm', 'downinnorm', 'sin_srip', 'isometry'], help='Orthogonal regularization')
     parser.add_argument('--lamb_list', default='0.0_1.0_0.0_0.0', type=str, help='lambda for each class of filter. [origin, point, depth, fully connected]')
     parser.add_argument('--tp', default='app', type=str, choices=['app', 'ori'], help='orthogonal regularization on depthwise convolution')
 
