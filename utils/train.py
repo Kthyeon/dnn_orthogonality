@@ -196,10 +196,9 @@ def train(model, dataloader, args):
             if args.ortho == 'norm':
                 loss += norm_reg(mdl = model, device = device, lamb_list = lambda_list, opt = args.opt)
             elif args.ortho == 'srip':
-                if (i !=0):
-                    loss += srip_reg(mdl = model, device = device, lamb_list = lambda_list, opt = args.opt, tp = args.tp)
+                loss += psrip_reg(mdl = model, device = device, lamb_list = lambda_list, opt = args.opt, tp = args.tp)
             elif args.ortho == 'sin_srip':
-                loss += srip_reg(mdl = model, device = device, lamb_list = lambda_list, opt = args.opt, tp = args.tp, level=None)
+                loss += psrip_reg(mdl = model, device = device, lamb_list = lambda_list, opt = args.opt, tp = args.tp, level=None)
             elif args.ortho == 'ort':
                 loss += or_reg(mdl = model, device = device, lamb_list = lambda_list, opt = args.opt)
             elif args.ortho == 'ortho':

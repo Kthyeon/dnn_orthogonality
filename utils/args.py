@@ -5,7 +5,7 @@ def parse_args():
     
     # seed and gpu
     parser.add_argument('--seed', default=None, type=int, help='random seed to set')
-    parser.add_argument('--root', default='/home/taehyeon/', type=str, help='dataset path')
+    parser.add_argument('--root', default='/home/', type=str, help='dataset path')
     
     # data setter
     parser.add_argument('--dataset', default='cifar10', type=str, choices=['cifar10', 'cifar100', 'tiny-image', 'image'] , help='dataset')

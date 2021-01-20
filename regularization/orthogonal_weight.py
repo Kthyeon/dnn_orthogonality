@@ -9,7 +9,7 @@ from torch.autograd import Variable
 from torch import cuda, nn, optim
 import torch.nn.functional as F
 
-__all__ = ['wd_reg', 'norm_reg', 'srip_reg','or_reg','ortho_reg', 'ortho']
+__all__ = ['wd_reg', 'norm_reg', 'psrip_reg','or_reg','ortho_reg', 'ortho']
 
 def conv_ortho(weight, device):    
     cols = weight[0].numel()
@@ -210,7 +210,7 @@ def norm_reg(mdl, device, lamb_list=[0.0, 1.0, 0.0, 0.0], opt = 'both'):
 # This is from the work: 'Can We Gain More from Orthogonality Regularizations in Training Deep CNNs?,' 
 # https://arxiv.org/abs/1810.09102.
 
-def srip_reg(mdl, device, lamb_list=[0.0, 1.0, 0.0, 0.0], opt='both', tp='app', level='iden'):
+def psrip_reg(mdl, device, lamb_list=[0.0, 1.0, 0.0, 0.0], opt='both', tp='app', level='iden'):
     # Consider the below facotrs.
     # factor1: which kind layer (e.g., original(stem), pointwise, depthwise, fc_layer)
     # factor2: power of regularization (i.e., lambda). Maybe, we should differ from each class of layer's lambda.
