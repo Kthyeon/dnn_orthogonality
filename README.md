@@ -1,6 +1,6 @@
 # Paper Title
 
-This repository is the official implementation of "The impact of the Kernel Orthogonality Regularization in Training Deep Convolutional Neural Networks" for the image classification tasks.
+This repository is the official implementation of "Revisiting Orthogonality Regularization: A Study for Convolutional Neural Networks in Image Classification" for the image classification tasks, published at IEEE Access 2022 Journal ([Paper Link](https://ieeexplore.ieee.org/abstract/document/9804718)).
 
 
 ## Overview
